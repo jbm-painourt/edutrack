@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1e1b4b" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="EduTrack" />
+  <title>EduTrack v2.1</title>
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- QR Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js" crossorigin="anonymous"></script>
+  <noscript>
+    <style>body{display:flex;align-items:center;justify-content:center;height:100vh;background:#0f0e1a;color:#e8e6f0;font-family:sans-serif;text-align:center;padding:20px;}</style>
+    <p>EduTrack requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
+  </noscript>
+
+  <style>
+    /* ── RESET & ROOT ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* global hidden utility */
+    .hidden { display: none !important; }
+
+    :root {
+      /* Core gradient palette — extracted from screenshot */
+      --grad-start:   #2d1b69;
+      --grad-mid:     #1e3a8a;
+      --grad-end:     #1e1b4b;
+      --grad-accent:  #7c3aed;
+
+      /* Backgrounds */
+      --bg:           #0f0e1a;
+      --bg2:          #1a1730;
+      --bg3:          #252240;
+      --bg4:          #2e2b4e;
+
+      /* Border */
+      --border:       rgba(124,58,237,0.2);
+      --border2:      rgba(124,58,237,0.4);
+
+      /* Text */
+      --text:         #e8e6f0;
+      --text2:        #9490b8;
+      --text3:        #6b6890;
+
+      /* Accent colors */
+      --primary:      #7c3aed;
+      --primary-lt:   #9d6af5;
+      --primary-dk:   #5b21b6;
+      --primary-glow: rgba(124,58,237,0.25);
+
+      --blue:         #3b82f6;
+      --blue-lt:      #60a5fa;
+      --blue-dk:      #1d4ed8;
+
+      --success:      #10b981;
+      --success-bg:   rgba(16,185,129,0.12);
+      --warn:         #f59e0b;
+      --warn-bg:      rgba(245,158,11,0.12);
+      --danger:       #ef4444;
+      --danger-bg:    rgba(239,68,68,0.12);
+
+      --radius:       12px;
+      --radius-sm:    8px;
+      --radius-xs:    6px;
+      --font:         'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      --header-h:     54px;
+      --nav-h:        62px;
+
+      /* Gradient shorthand */
+      --grad: linear-gradient(135deg, var(--grad-start) 0%, var(--grad-mid) 50%, var(--grad-end) 100%);
+      --grad-subtle: linear-gradient(135deg, rgba(45,27,105,0.6) 0%, rgba(30,58,138,0.6) 100%);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    /* ── SCREENS ──────────────────────────────────────────── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+    .screen.hidden { display: none; }
+
+    /* ── LOADING SPLASH ───────────────────────────────────── */
+    #screen-loading {
+      background: var(--grad);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .splash-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .splash-logo {
+      width: 80px;
+      height: 80px;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -1px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .splash-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .splash-sub {
+      font-size: 13px;
+      color: rgba(255,255,255,0.6);
+      margin-top: -14px;
+    }
+    .splash-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── OFFLINE SCREEN ───────────────────────────────────── */
+    #screen-offline {
+      background: var(--grad);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      z-index: 9000;
+    }
+    .offline-card {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 36px 28px;
+      text-align: center;
+      max-width: 340px;
+      width: 100%;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      background: rgba(30,27,75,0.9);
+    }
+    .offline-icon {
+      font-size: 56px;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .offline-card h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    .offline-card p {
+      font-size: 14px;
+      color: rgba(255,255,255,0.65);
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+    .offline-static-msg {
+      font-size: 13px;
+      color: rgba(255,255,255,0.45);
+      margin-top: 14px;
+      display: none;
+    }
+    .offline-static-msg.show { display: block; }
+
+    /* ── APP HEADER ───────────────────────────────────────── */
+    .app-header {
+      height: var(--header-h);
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 10px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .app-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--blue) 100%);
+      opacity: 0.6;
+    }
+    .app-logo-sm {
+      width: 30px; height: 30px;
+      background: var(--primary);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; color: #fff;
+      flex-shrink: 0;
+    }
+    .app-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.3px;
+      flex: 1;
+    }
+    .app-title span {
+      color: var(--primary-lt);
+    }
+    .role-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .role-badge.principal { background: rgba(124,58,237,0.2); color: var(--primary-lt); border: 1px solid rgba(124,58,237,0.4); }
+    .role-badge.teacher   { background: rgba(59,130,246,0.2); color: var(--blue-lt);    border: 1px solid rgba(59,130,246,0.4); }
+    .role-badge.parent    { background: rgba(16,185,129,0.2); color: #34d399;           border: 1px solid rgba(16,185,129,0.4); }
+
+    .btn-icon {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 5px 10px;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: var(--font);
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .btn-icon:hover { color: var(--danger); border-color: var(--danger); }
+
+    /* ── SYNC BANNER ──────────────────────────────────────── */
+    .sync-banner {
+      padding: 5px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      flex-shrink: 0;
+      min-height: 26px;
+      letter-spacing: 0.3px;
+      transition: background 0.3s;
+    }
+    .sync-banner.offline { background: rgba(239,68,68,0.15);  color: #fca5a5; border-bottom: 1px solid rgba(239,68,68,0.2); }
+    .sync-banner.pending { background: rgba(245,158,11,0.15); color: #fcd34d; border-bottom: 1px solid rgba(245,158,11,0.2); }
+    .sync-banner.synced  { background: rgba(16,185,129,0.15); color: #6ee7b7; border-bottom: 1px solid rgba(16,185,129,0.2); }
+
+    /* ── TAB CONTENT ──────────────────────────────────────── */
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      padding-bottom: calc(var(--nav-h) + 16px);
+      scrollbar-width: thin;
+      scrollbar-color: var(--bg4) transparent;
+    }
+    .tab-content::-webkit-scrollbar { width: 4px; }
+    .tab-content::-webkit-scrollbar-track { background: transparent; }
+    .tab-content::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+
+    /* ── BOTTOM NAV ───────────────────────────────────────── */
+    .bottom-nav {
+      height: var(--nav-h);
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .bottom-nav::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary), var(--blue), transparent);
+      opacity: 0.5;
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      color: var(--text3);
+      cursor: pointer;
+      font-size: 20px;
+      transition: color 0.2s, background 0.2s;
+      padding: 6px 0;
+      position: relative;
+      font-family: var(--font);
+    }
+    .nav-btn small {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .nav-btn.active {
+      color: var(--primary-lt);
+    }
+    .nav-btn.active::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 20%; right: 20%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--primary), var(--blue));
+      border-radius: 0 0 4px 4px;
+    }
+    .nav-btn:hover { color: var(--text); }
+
+    /* ── BUTTONS ──────────────────────────────────────────── */
+    button { font-family: var(--font); cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--blue-dk) 100%);
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      box-shadow: 0 4px 16px var(--primary-glow);
+    }
+    .btn-primary:hover { opacity: 0.9; }
+
+    .btn-secondary {
+      background: var(--bg3);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .btn-secondary:hover { border-color: var(--border2); }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .btn-primary-sm   { background: linear-gradient(135deg, var(--primary), var(--blue-dk)); color: #fff; border: none; padding: 7px 14px; border-radius: var(--radius-xs); font-size: 12px; font-weight: 700; }
+    .btn-secondary-sm { background: var(--bg3); color: var(--text); border: 1px solid var(--border); padding: 7px 14px; border-radius: var(--radius-xs); font-size: 12px; }
+    .btn-danger-sm    { background: transparent; color: var(--danger); border: 1px solid rgba(239,68,68,0.4); padding: 6px 12px; border-radius: var(--radius-xs); font-size: 12px; }
+    .btn-danger-sm:hover { background: var(--danger); color: #fff; }
+    .full-width { width: 100%; margin-top: 12px; }
+
+    /* ── INPUTS ───────────────────────────────────────────── */
+    .input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 11px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: var(--font);
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    .input::placeholder { color: var(--text3); }
+    select.input { appearance: none; cursor: pointer; }
+
+    /* ── CARDS & SECTIONS ─────────────────────────────────── */
+    .form-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .form-card h3 { font-size: 13px; color: var(--text2); margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-card.hidden { display: none; }
+
+    .section-block    { margin-bottom: 22px; }
+    .section-title    { font-size: 19px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.3px; }
+    .section-sub      { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+    .section-subtitle { font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .section-header   { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+    /* ── STATS GRID ───────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--primary), var(--blue));
+    }
+    .stat-card.stat-warn   { border-color: rgba(245,158,11,0.3); }
+    .stat-card.stat-warn::before { background: var(--warn); }
+    .stat-card.stat-danger { border-color: rgba(239,68,68,0.3); }
+    .stat-card.stat-danger::before { background: var(--danger); }
+    .stat-card.stat-ok     { border-color: rgba(16,185,129,0.3); }
+    .stat-card.stat-ok::before { background: var(--success); }
+    .stat-number { font-size: 30px; font-weight: 800; color: var(--primary-lt); line-height: 1; }
+    .stat-label  { font-size: 11px; color: var(--text2); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+
+    /* ── LIST CARDS ───────────────────────────────────────── */
+    .list-cards { display: flex; flex-direction: column; gap: 8px; }
+    .list-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 13px 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: border-color 0.2s;
+    }
+    .list-card:hover { border-color: var(--border2); }
+    .list-card-info { flex: 1; min-width: 0; }
+    .list-card-info strong { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .list-card-info small  { display: block; font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .list-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* ── TABLES ───────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th { background: var(--bg3); padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text2); font-weight: 700; }
+    .data-table td { padding: 10px 12px; border-top: 1px solid var(--border); }
+    .data-table tr:hover td { background: rgba(124,58,237,0.05); }
+    .data-table.small-table th, .data-table.small-table td { padding: 7px 8px; font-size: 12px; }
+    .total-row td { background: var(--bg3); font-weight: 700; }
+    .row-risk td  { color: var(--warn); }
+
+    /* ── ATTENDANCE COLORS ────────────────────────────────── */
+    .att-p { color: var(--success); font-weight: 700; }
+    .att-a { color: var(--danger);  font-weight: 700; }
+    .att-l { color: var(--warn);    font-weight: 700; }
+
+    /* ── ATTENDANCE MARKING ───────────────────────────────── */
+    .att-list { display: flex; flex-direction: column; gap: 6px; }
+    .att-row  { display: flex; align-items: center; justify-content: space-between; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 13px; transition: border-color 0.2s; }
+    .att-row:hover { border-color: var(--border2); }
+    .att-name { font-size: 14px; flex: 1; }
+    .att-btns { display: flex; gap: 6px; }
+    .att-btn  { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg3); color: var(--text2); font-weight: 800; font-size: 12px; font-family: var(--font); }
+    .att-btn.att-present { background: var(--success); color: #fff; border-color: var(--success); }
+    .att-btn.att-absent  { background: var(--danger);  color: #fff; border-color: var(--danger); }
+    .att-btn.att-late    { background: var(--warn);    color: #fff; border-color: var(--warn); }
+
+    /* ── MARKS INPUT ──────────────────────────────────────── */
+    .marks-list { display: flex; flex-direction: column; gap: 8px; }
+    .marks-row  { display: flex; align-items: center; gap: 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 13px; }
+    .marks-name  { flex: 1; font-size: 14px; }
+    .marks-input { width: 90px; margin-bottom: 0; text-align: center; }
+
+    /* ── QR ───────────────────────────────────────────────── */
+    .qr-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; margin-top: 16px; }
+    .qr-card canvas { border-radius: var(--radius-sm); margin: 10px auto; display: block; }
+    .qr-card h3 { font-size: 16px; margin-bottom: 4px; }
+    .qr-id { font-size: 10px; color: var(--text2); word-break: break-all; margin-bottom: 8px; }
+    .qr-video { width: 100%; max-width: 320px; border-radius: var(--radius); border: 2px solid var(--primary); display: block; margin: 0 auto; }
+    .qr-result-msg { text-align: center; padding: 8px; font-size: 13px; color: var(--text2); margin-top: 8px; }
+
+    /* ── INFO BLOCKS ──────────────────────────────────────── */
+    .info-block { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+    .info-row   { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-row span { color: var(--text2); }
+
+    /* ── MORE GRID ────────────────────────────────────────── */
+    .more-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+    .more-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 8px;
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+    .more-card:hover { border-color: var(--primary); background: var(--primary-glow); transform: translateY(-1px); }
+    .more-card span   { font-size: 26px; }
+    .more-card strong { font-size: 12px; font-weight: 700; text-align: center; }
+    .more-card small  { font-size: 10px; color: var(--text2); text-align: center; }
+
+    /* ── TWO COL ──────────────────────────────────────────── */
+    .two-col  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .col-block { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+
+    /* ── SIMPLE LIST ──────────────────────────────────────── */
+    .simple-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .simple-list li { display: flex; align-items: center; justify-content: space-between; background: var(--bg3); border-radius: var(--radius-xs); padding: 8px 12px; font-size: 13px; }
+
+    /* ── ALERTS ───────────────────────────────────────────── */
+    .alert-block { background: var(--warn-bg); border: 1px solid rgba(245,158,11,0.3); border-radius: var(--radius); padding: 12px; color: var(--warn); font-size: 13px; margin-bottom: 16px; }
+    .warn-block  { background: var(--danger-bg); border: 1px solid rgba(239,68,68,0.3); border-radius: var(--radius); padding: 12px; color: var(--danger); font-size: 13px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .empty-msg   { color: var(--text3); font-size: 13px; text-align: center; padding: 28px 0; }
+    .error-msg   { color: var(--danger); font-size: 13px; min-height: 18px; margin-bottom: 6px; }
+    .loading     { color: var(--text2); text-align: center; padding: 40px 0; font-size: 14px; }
+    .override-note { color: var(--warn); font-size: 12px; display: block; margin-bottom: 10px; }
+    .date-badge  { font-size: 12px; color: var(--text2); }
+    .text-ok     { color: var(--success); }
+    .text-warn   { color: var(--warn); }
+    .tab-section { padding-bottom: 8px; }
+
+    /* ── STUDENT PROFILE ──────────────────────────────────── */
+    .student-profile { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+    .student-avatar  { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--blue)); color: #fff; font-size: 22px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .student-info h2 { font-size: 18px; font-weight: 800; }
+    .student-info small { color: var(--text2); font-size: 12px; }
+
+    /* ── TODAY STATUS ─────────────────────────────────────── */
+    .today-status { padding: 14px; border-radius: var(--radius); text-align: center; font-size: 16px; font-weight: 700; }
+    .status-present { background: var(--success-bg); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+    .status-absent  { background: var(--danger-bg);  color: var(--danger);  border: 1px solid rgba(239,68,68,0.3); }
+    .status-late    { background: var(--warn-bg);    color: var(--warn);    border: 1px solid rgba(245,158,11,0.3); }
+    .status-unknown { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+
+    /* ── PCT BADGES ───────────────────────────────────────── */
+    .pct-badge  { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+    .pct-ok     { background: var(--success-bg); color: var(--success); }
+    .pct-warn   { background: var(--warn-bg);    color: var(--warn); }
+    .pct-danger { background: var(--danger-bg);  color: var(--danger); }
+
+    /* ── TOAST ────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: calc(var(--nav-h) + 14px);
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--bg4);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      padding: 10px 22px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 5000;
+      max-width: 90vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.toast-ok      { border-color: rgba(16,185,129,0.5); color: #6ee7b7; }
+    #toast.toast-error   { border-color: rgba(239,68,68,0.5);  color: #fca5a5; }
+    #toast.toast-warning { border-color: rgba(245,158,11,0.5); color: #fcd34d; }
+
+    /* ── MODAL ────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 4000;
+      padding: 20px;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-box {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .modal-box h3 { font-size: 17px; font-weight: 800; margin-bottom: 10px; }
+    .modal-box p  { font-size: 14px; color: var(--text2); margin-bottom: 20px; line-height: 1.6; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* ── LOGIN SCREEN ─────────────────────────────────────── */
+    #screen-login {
+      background: var(--grad);
+    }
+    .login-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-y: auto;
+    }
+    .login-logo {
+      width: 72px; height: 72px;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.25);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px; font-weight: 900; color: #fff;
+      margin-bottom: 14px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      letter-spacing: -1px;
+    }
+    .login-title {
+      font-size: 28px; font-weight: 900;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .login-subtitle {
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+      margin-bottom: 28px;
+      text-align: center;
+    }
+    .login-card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 360px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+      /* fallback for browsers without backdrop-filter */
+      background: rgba(30,27,75,0.85);
+    }
+    .login-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: var(--radius-xs);
+      overflow: hidden;
+    }
+    .login-tab {
+      flex: 1; padding: 9px;
+      background: none; border: none;
+      color: rgba(255,255,255,0.5);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      font-family: var(--font);
+    }
+    .login-tab.active {
+      background: rgba(124,58,237,0.6);
+      color: #fff;
+    }
+
+    /* override input style inside glass card */
+    .login-card .input {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+    }
+    .login-card .input::placeholder { color: rgba(255,255,255,0.4); }
+    .login-card .input:focus {
+      border-color: rgba(124,58,237,0.8);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.2);
+    }
+    .login-card .error-msg { color: #fca5a5; }
+
+    /* ── PASSWORD TOGGLE ──────────────────────────────────── */
+    .input-wrap {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .input-wrap .input {
+      margin-bottom: 0;
+      padding-right: 44px;
+    }
+    .pwd-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.4);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+    .pwd-toggle:hover { color: rgba(255,255,255,0.8); }
+    .login-link a { color: rgba(255,255,255,0.85); cursor: pointer; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.3); }
+    .login-link a:hover { color: #fff; }
+
+    /* ── REGISTER SCREEN ──────────────────────────────────── */
+    #screen-register {
+      background: var(--grad);
+    }
+    .register-header {
+      background: rgba(0,0,0,0.2);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .register-header strong { font-size: 16px; font-weight: 800; color: #fff; }
+    .register-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
+    .register-card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      backdrop-filter: blur(20px);
+    }
+    .register-card h3 {
+      font-size: 12px; font-weight: 700;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 12px; margin-top: 4px;
+    }
+    .register-card .input {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+    }
+    .register-card .input::placeholder { color: rgba(255,255,255,0.35); }
+    .register-card .input:focus { border-color: rgba(124,58,237,0.8); box-shadow: 0 0 0 3px rgba(124,58,237,0.2); }
+    .register-card .error-msg { color: #fca5a5; }
+  </style>
+</head>
+<body>
+
+  <!-- ── LOADING SPLASH ─────────────────────────────────── -->
+  <div id="screen-loading" class="screen">
+    <div class="splash-inner">
+      <div class="splash-logo">ET</div>
+      <div class="splash-title">EduTrack</div>
+      <div class="splash-sub">School Management · Rural India</div>
+      <div class="splash-spinner"></div>
+    </div>
+  </div>
+
+  <!-- ── OFFLINE SCREEN ────────────────────────────────── -->
+  <div id="screen-offline" class="screen hidden">
+    <div class="offline-card">
+      <span class="offline-icon">📡</span>
+      <h2>No Connection</h2>
+      <p>EduTrack needs internet to log in for the first time. Please connect and try again.</p>
+      <button class="btn-primary full-width" style="margin-top:0;" onclick="APP.retryConnection()">
+        ↺ Retry Connection
+      </button>
+      <p id="offline-static" class="offline-static-msg">
+        Still no connection. Check your WiFi or mobile data and try again.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── LOGIN SCREEN ───────────────────────────────────── -->
+  <div id="screen-login" class="screen hidden">
+    <div class="login-screen">
+      <div class="login-logo">ET</div>
+      <div class="login-title">EduTrack</div>
+      <div class="login-subtitle">School Management for Rural India</div>
+
+      <div class="login-card">
+        <div class="login-tabs">
+          <button class="login-tab active" id="tab-staff"
+            onclick="showLoginTab('staff')">Staff</button>
+          <button class="login-tab" id="tab-parent"
+            onclick="showLoginTab('parent')">Parent</button>
+        </div>
+
+        <!-- Staff login -->
+        <div id="login-staff">
+          <input id="login-username" class="input" type="text"
+            placeholder="Username" autocomplete="username" />
+          <div class="input-wrap">
+            <input id="login-password" class="input" type="password"
+              placeholder="Password" autocomplete="current-password" />
+            <button class="pwd-toggle" type="button"
+              onclick="togglePwd('login-password',this)" title="Show/hide password">👁</button>
+          </div>
+          <div id="login-error" class="error-msg"></div>
+          <button id="btn-login" class="btn-primary full-width"
+            data-label="🔐 Login" onclick="APP.login()">🔐 Login</button>
+        </div>
+
+        <!-- Parent login -->
+        <div id="login-parent" class="hidden">
+          <input id="parent-student-id" class="input" type="text"
+            placeholder="Student ID" />
+          <input id="parent-dob" class="input" type="date" />
+          <div id="parent-login-error" class="error-msg"></div>
+          <button id="btn-parent-login" class="btn-primary full-width"
+            data-label="View My Child" onclick="APP.parentLogin()">👁 View My Child</button>
+          <button class="btn-secondary full-width" style="margin-top:8px;"
+            onclick="APP.startQRScan()">📷 Scan QR Code Instead</button>
+        </div>
+
+        <div class="login-link">
+          New school? <a onclick="showRegisterScreen()">Register here</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REGISTER SCREEN ────────────────────────────────── -->
+  <div id="screen-register" class="screen hidden">
+    <div class="register-header">
+      <button class="btn-icon" style="border-color:rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);"
+        onclick="showLoginScreen()">&#9664; Back</button>
+      <strong>Register New School</strong>
+    </div>
+    <div class="register-body">
+      <div class="register-card">
+        <h3>School Details</h3>
+        <input id="reg-school-name" class="input" type="text"   placeholder="School name *" />
+        <input id="reg-address"     class="input" type="text"   placeholder="Address (optional)" />
+        <h3 style="margin-top:4px;">Principal Account</h3>
+        <input id="reg-principal-name" class="input" type="text"     placeholder="Principal full name *" />
+        <input id="reg-username"       class="input" type="text"     placeholder="Username *" autocomplete="off" />
+        <input id="reg-password"       class="input" type="password" placeholder="Password (min 4 chars) *" />
+        <div id="reg-error" class="error-msg"></div>
+        <button id="btn-register" class="btn-primary full-width"
+          data-label="Register School" onclick="APP.register()">
+          🏫 Register School
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROLE SCREENS (injected by JS) ─────────────────── -->
+  <div id="screen-principal" class="screen hidden"></div>
+  <div id="screen-teacher"   class="screen hidden"></div>
+  <div id="screen-parent"    class="screen hidden"></div>
+
+  <!-- ── TOAST ─────────────────────────────────────────── -->
+  <div id="toast"></div>
+
+  <!-- ── MODAL ─────────────────────────────────────────── -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3 id="modal-title"></h3>
+      <p  id="modal-message"></p>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="APP.hideModal()">Cancel</button>
+        <button id="modal-confirm" class="btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SCRIPTS ────────────────────────────────────────── -->
+  <script src="config.js"    onerror="scriptLoadFailed('config.js')"></script>
+  <script src="supabase.js"  onerror="scriptLoadFailed('supabase.js')"></script>
+  <script src="sync.js"      onerror="scriptLoadFailed('sync.js')"></script>
+  <script src="app.js"       onerror="scriptLoadFailed('app.js')"></script>
+  <script src="principal.js" onerror="scriptLoadFailed('principal.js')"></script>
+  <script src="teacher.js"   onerror="scriptLoadFailed('teacher.js')"></script>
+  <script src="parent.js"    onerror="scriptLoadFailed('parent.js')"></script>
+
+  <script>
+    // ── FIX 6: SCRIPT LOAD ERROR HANDLER ─────────────────
+    function scriptLoadFailed(file) {
+      var splash = document.getElementById('screen-loading');
+      if (splash) {
+        splash.innerHTML = `
+          <div style="text-align:center;padding:32px;color:#fff;">
+            <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+            <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Failed to Load</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:24px;">
+              Could not load <strong>${file}</strong>.<br>
+              Check your internet connection or reinstall the app.
+            </div>
+            <button onclick="location.reload()"
+              style="background:rgba(124,58,237,0.8);color:#fff;border:none;padding:12px 28px;
+              border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
+              ↺ Reload App
+            </button>
+          </div>`;
+      }
+    }
+
+    // ── FIX 5: PASSWORD VISIBILITY TOGGLE ────────────────
+    function togglePwd(inputId, btn) {
+      var input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁';
+      }
+    }
+
+    // ── LOGIN TAB SWITCHER ────────────────────────────────
+    function showLoginTab(tab) {
+      document.getElementById('login-staff').classList.toggle('hidden',  tab !== 'staff');
+      document.getElementById('login-parent').classList.toggle('hidden', tab !== 'parent');
+      document.getElementById('tab-staff').classList.toggle('active',  tab === 'staff');
+      document.getElementById('tab-parent').classList.toggle('active', tab === 'parent');
+    }
+
+    function showRegisterScreen() {
+      document.getElementById('screen-login').classList.add('hidden');
+      document.getElementById('screen-register').classList.remove('hidden');
+    }
+
+    function showLoginScreen() {
+      document.getElementById('screen-register').classList.add('hidden');
+      document.getElementById('screen-login').classList.remove('hidden');
+    }
+
+    // ── SERVICE WORKER ────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').then(function (reg) {
+          console.log('[SW] Registered:', reg.scope);
+        }).catch(function (err) {
+          console.warn('[SW] Registration failed:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
