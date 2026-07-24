@@ -70,7 +70,7 @@ const TEACHER = {
     const content = document.getElementById('teacher-content');
 
     const students = APP.getLocalBySchool('students',   sid);
-    const classes  = APP.getLocalBySchool('classes',    sid);
+    const classes  = APP.getLocalBySchool('classes',    sid).filter(function(c) { return c.teacher_id === APP.session.user_id; });
     const todayAtt = APP.getLocalBySchool('attendance', sid).filter(function(a) {
       return a.date === today;
     });
@@ -174,8 +174,9 @@ const TEACHER = {
   async renderStudents() {
     const sid      = APP.session.school_id;
     const content  = document.getElementById('teacher-content');
-    const students = APP.getLocalBySchool('students', sid);
-    const classes  = APP.getLocalBySchool('classes',  sid);
+    const classes  = APP.getLocalBySchool('classes',  sid).filter(function(c) { return c.teacher_id === APP.session.user_id; });
+    const myClassIds = classes.map(function(c) { return c.class_id; });
+    const students = APP.getLocalBySchool('students', sid).filter(function(s) { return myClassIds.includes(s.class_id); });
 
     content.innerHTML = `
       <div class="tab-section">
@@ -589,7 +590,7 @@ const TEACHER = {
   async renderAttendance() {
     const sid     = APP.session.school_id;
     const content = document.getElementById('teacher-content');
-    const classes = APP.getLocalBySchool('classes', sid);
+    const classes = APP.getLocalBySchool('classes', sid).filter(function(c) { return c.teacher_id === APP.session.user_id; });
     const today   = APP.today();
 
     TEACHER.attendanceMap = {};
@@ -896,7 +897,7 @@ const TEACHER = {
     // teacher manages exams + subjects here
     const exams    = APP.getLocalBySchool('exams',    sid);
     const subjects = APP.getLocalBySchool('subjects', sid);
-    const classes  = APP.getLocalBySchool('classes',  sid);
+    const classes  = APP.getLocalBySchool('classes',  sid).filter(function(c) { return c.teacher_id === APP.session.user_id; });
 
     content.innerHTML = `
       <div class="tab-section">
