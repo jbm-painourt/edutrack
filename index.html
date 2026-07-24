@@ -11,6 +11,10 @@
   <title>EduTrack v2.1</title>
   <link rel="manifest" href="manifest.json" />
 
+  <!-- Leaflet Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+
   <!-- QR Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js" crossorigin="anonymous"></script>
@@ -741,6 +745,32 @@
     .login-link a { color: rgba(255,255,255,0.85); cursor: pointer; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.3); }
     .login-link a:hover { color: #fff; }
 
+    /* ── GEO MAP ──────────────────────────────────────────── */
+    .map-container {
+      width: 100%;
+      height: 220px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-top: 10px;
+      background: var(--bg3);
+    }
+    .map-legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text2);
+    }
+    .map-legend span { display: flex; align-items: center; gap: 4px; }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
     /* ── REGISTER SCREEN ──────────────────────────────────── */
     #screen-register {
       background: var(--grad);
@@ -970,6 +1000,68 @@
       document.getElementById('screen-register').classList.add('hidden');
       document.getElementById('screen-login').classList.remove('hidden');
     }
+
+    // ── GEO MAP MODULE ────────────────────────────────────
+    var GEO = {
+      maps: {}, // store map instances by containerId to avoid re-init
+
+      // Render a Leaflet map into containerId with given pins array
+      // pins: [{ lat, lng, verified, accuracy, date, label }]
+      renderMap: function(containerId, pins) {
+        // destroy existing map instance if any
+        if (GEO.maps[containerId]) {
+          GEO.maps[containerId].remove();
+          delete GEO.maps[containerId];
+        }
+
+        var el = document.getElementById(containerId);
+        if (!el) return;
+
+        // filter pins with valid coords
+        var valid = pins.filter(function(p) {
+          return p.lat !== null && p.lat !== undefined &&
+                 p.lng !== null && p.lng !== undefined;
+        });
+
+        if (valid.length === 0) {
+          el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px;">No location data recorded yet</div>';
+          return;
+        }
+
+        // center on average of all pins
+        var avgLat = valid.reduce(function(s, p) { return s + p.lat; }, 0) / valid.length;
+        var avgLng = valid.reduce(function(s, p) { return s + p.lng; }, 0) / valid.length;
+
+        var map = L.map(containerId, { zoomControl: true, attributionControl: false }).setView([avgLat, avgLng], 15);
+        GEO.maps[containerId] = map;
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        valid.forEach(function(p) {
+          var color  = p.verified ? '#10b981' : '#f59e0b';
+          var icon   = L.divIcon({
+            className: '',
+            html: '<div style="width:14px;height:14px;background:' + color + ';border:2px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
+            iconSize:   [14, 14],
+            iconAnchor: [7, 7]
+          });
+          var popup = (p.label || 'Attendance') +
+            '<br/>Date: ' + (p.date || '—') +
+            '<br/>Accuracy: ' + (p.accuracy !== null && p.accuracy !== undefined ? p.accuracy + 'm' : '—') +
+            '<br/>Status: ' + (p.verified ? '✅ Verified' : '⚠️ Uncertain');
+          L.marker([p.lat, p.lng], { icon: icon }).addTo(map).bindPopup(popup);
+        });
+
+        // fit bounds if multiple pins
+        if (valid.length > 1) {
+          var bounds = L.latLngBounds(valid.map(function(p) { return [p.lat, p.lng]; }));
+          map.fitBounds(bounds, { padding: [20, 20] });
+        }
+      }
+    };
 
     // ── SERVICE WORKER ────────────────────────────────────
     if ('serviceWorker' in navigator) {
