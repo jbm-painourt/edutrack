@@ -208,6 +208,25 @@ const PRINCIPAL = {
           }
         </div>
 
+        <!-- ALL TEACHERS GEO MAP -->
+        <div class="section-block">
+          <div class="section-header">
+            <h3 class="section-subtitle">📍 Teacher Attendance Locations</h3>
+            <button class="btn-secondary-sm" onclick="PRINCIPAL.toggleGeoOverview()"
+              id="btn-geo-overview">Show Map</button>
+          </div>
+          <div id="principal-geo-overview-section" class="hidden">
+            <div id="principal-geo-overview-map" class="map-container"></div>
+            <div class="map-legend">
+              <span><i class="legend-dot" style="background:#10b981;"></i> Verified</span>
+              <span><i class="legend-dot" style="background:#f59e0b;"></i> Uncertain</span>
+            </div>
+            <p style="font-size:11px;color:var(--text3);margin-top:6px;">
+              All teachers' attendance locations. Tap a pin to see teacher name and date.
+            </p>
+          </div>
+        </div>
+
         <!-- Quick actions -->
         <div class="section-block">
           <h3 class="section-subtitle">Quick Actions</h3>
@@ -234,6 +253,43 @@ const PRINCIPAL = {
         </div>
       </div>
     `;
+  },
+
+  // ─── GEO OVERVIEW TOGGLE ───────────────────────────────────────────
+  toggleGeoOverview() {
+    const section = document.getElementById('principal-geo-overview-section');
+    const btn     = document.getElementById('btn-geo-overview');
+    if (!section) return;
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden', !isHidden);
+    if (btn) btn.textContent = isHidden ? 'Hide Map' : 'Show Map';
+    if (isHidden) {
+      setTimeout(function() {
+        // build pins from ALL teachers' attendance
+        const sid      = APP.session.school_id;
+        const allUsers = APP.getLocalUsers().filter(function(u) {
+          return u.school_id === sid && u.role === 'teacher';
+        });
+        const allAtt   = APP.getLocalBySchool('attendance', sid);
+        const pins     = [];
+        allUsers.forEach(function(t) {
+          allAtt.filter(function(a) {
+            return a.teacher_id === t.user_id &&
+                   a.geo_lat !== null && a.geo_lat !== undefined;
+          }).forEach(function(a) {
+            pins.push({
+              lat:      a.geo_lat,
+              lng:      a.geo_long,
+              verified: a.geo_verified,
+              accuracy: a.geo_accuracy,
+              date:     a.date,
+              label:    t.name || 'Teacher'
+            });
+          });
+        });
+        GEO.renderMap('principal-geo-overview-map', pins);
+      }, 50);
+    }
   },
 
   // ─── AT-RISK CALCULATION ────────────────────────────────────────────
@@ -647,6 +703,13 @@ const PRINCIPAL = {
           </div>
         </div>
 
+        <!-- Geo Map -->
+        <div id="principal-geo-map" class="map-container" style="margin-bottom:12px;"></div>
+        <div class="map-legend" style="margin-bottom:12px;">
+          <span><i class="legend-dot" style="background:#10b981;"></i> Verified</span>
+          <span><i class="legend-dot" style="background:#f59e0b;"></i> Uncertain</span>
+        </div>
+
         <!-- Session log table -->
         <div class="table-wrap">
           <table class="data-table small-table">
@@ -695,6 +758,21 @@ const PRINCIPAL = {
       </div>
     `;
     sub.scrollIntoView({ behavior: 'smooth' });
+
+    // render Leaflet map after DOM is visible
+    const geoPins = sessions
+      .filter(function(a) { return a.geo_lat !== null && a.geo_lat !== undefined; })
+      .map(function(a) {
+        return {
+          lat:      a.geo_lat,
+          lng:      a.geo_long,
+          verified: a.geo_verified,
+          accuracy: a.geo_accuracy,
+          date:     a.date,
+          label:    teacherName
+        };
+      });
+    setTimeout(function() { GEO.renderMap('principal-geo-map', geoPins); }, 50);
   },
 
   // ─── CLASSES ────────────────────────────────────────────────────────
