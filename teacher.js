@@ -114,8 +114,60 @@ const TEACHER = {
               </ul>`
           }
         </div>
+
+        <!-- GEO ATTENDANCE MAP -->
+        <div class="section-block">
+          <div class="section-header">
+            <h3 class="section-subtitle">📍 My Attendance Locations</h3>
+            <button class="btn-secondary-sm" onclick="TEACHER.toggleGeoMap()"
+              id="btn-geo-toggle">Show Map</button>
+          </div>
+          <div id="teacher-geo-section" class="hidden">
+            <div id="teacher-geo-map" class="map-container"></div>
+            <div class="map-legend">
+              <span><i class="legend-dot" style="background:#10b981;"></i> Verified (&lt;200m)</span>
+              <span><i class="legend-dot" style="background:#f59e0b;"></i> Uncertain</span>
+            </div>
+            <p style="font-size:11px;color:var(--text3);margin-top:6px;">
+              Tap any pin for session details. Green = location verified within 200m.
+            </p>
+          </div>
+        </div>
       </div>
     `;
+
+    // pre-load geo pins for this teacher
+    TEACHER._teacherGeoPins = APP.getLocalBySchool('attendance', sid)
+      .filter(function(a) {
+        return a.teacher_id === APP.session.user_id &&
+               a.geo_lat !== null && a.geo_lat !== undefined;
+      })
+      .map(function(a) {
+        return {
+          lat:      a.geo_lat,
+          lng:      a.geo_long,
+          verified: a.geo_verified,
+          accuracy: a.geo_accuracy,
+          date:     a.date,
+          label:    'Attendance Session'
+        };
+      });
+  },
+
+
+  // ─── GEO MAP TOGGLE ─────────────────────────────────────────────────
+  toggleGeoMap() {
+    const section = document.getElementById('teacher-geo-section');
+    const btn     = document.getElementById('btn-geo-toggle');
+    if (!section) return;
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden', !isHidden);
+    if (btn) btn.textContent = isHidden ? 'Hide Map' : 'Show Map';
+    if (isHidden) {
+      setTimeout(function() {
+        GEO.renderMap('teacher-geo-map', TEACHER._teacherGeoPins || []);
+      }, 50);
+    }
   },
 
   // ─── STUDENTS ───────────────────────────────────────────────────────
