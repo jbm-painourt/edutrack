@@ -529,7 +529,7 @@ APP.parentLogin = async function() {
   APP.setLoading('btn-parent-login', true);
 
   const res = await DB.request('GET', 'students', null,
-    '?student_id=eq.' + studentId + '&dob=eq.' + dob);
+    '?roll_no=eq.' + studentId + '&dob=eq.' + dob);
 
   if (res.error || !res.data || res.data.length === 0) {
     errEl.textContent = 'Student not found. Check ID and date of birth.';
