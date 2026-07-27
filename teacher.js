@@ -204,6 +204,10 @@ const TEACHER = {
             <input id="s-dob"     class="input" type="date" />
             <input id="s-phone"   class="input" type="tel"  placeholder="Parent phone" />
           </div>
+          <select id="s-gender" class="input">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
           <select id="s-class" class="input">
             <option value="">-- Select Class *--</option>
             ${classes.map(function(c) {
@@ -324,6 +328,7 @@ const TEACHER = {
       roll_no:      roll,
       dob:          dob || null,
       parent_phone: phone || null,
+      gender:       document.getElementById('s-gender').value || 'male',
       created_at:   new Date().toISOString()
     };
 
