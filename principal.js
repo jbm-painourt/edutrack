@@ -1051,6 +1051,10 @@ const PRINCIPAL = {
           <input id="pe-phone" class="input" type="tel"
             placeholder="Parent phone" value="${s.parent_phone || ''}" />
         </div>
+        <select id="pe-gender" class="input">
+          <option value="male"   ${s.gender === 'male'   ? 'selected' : ''}>Male</option>
+          <option value="female" ${s.gender === 'female' ? 'selected' : ''}>Female</option>
+        </select>
         <select id="pe-class" class="input">
           <option value="">-- Select Class --</option>
           ${classes.map(function(c) {
@@ -1108,6 +1112,7 @@ const PRINCIPAL = {
       roll_no:      roll,
       dob:          dob || null,
       parent_phone: phone || null,
+      gender:       document.getElementById('pe-gender').value || 'male',
       class_id:     classId,
       edited_by:    'principal',
       edited_at:    new Date().toISOString()
@@ -1757,6 +1762,9 @@ const PRINCIPAL = {
           <button class="more-card" onclick="PRINCIPAL.showMarksOverview()">
             <span>📊</span><strong>Marks</strong><small>Overview</small>
           </button>
+          <button class="more-card" onclick="PRINCIPAL.generateUDISE()">
+            <span>📋</span><strong>UDISE+ Report</strong><small>Auto-fill &amp; print</small>
+          </button>
         </div>
         <div class="section-header">
           <h3 class="section-subtitle">Sync Status</h3>
@@ -1800,6 +1808,175 @@ const PRINCIPAL = {
         }
       </div>
     `;
+  },
+
+  generateUDISE() {
+    const sid      = APP.session.school_id;
+    const school   = APP.getLocal('schools').find(function(s) { return s.school_id === sid; }) || {};
+    const students = APP.getLocalBySchool('students',   sid);
+    const classes  = APP.getLocalBySchool('classes',    sid);
+    const teachers = APP.getLocalUsers().filter(function(u) { return u.school_id === sid && u.role === 'teacher'; });
+    const att      = APP.getLocalBySchool('attendance', sid);
+    const marks    = APP.getLocalBySchool('marks',      sid);
+    const exams    = APP.getLocalBySchool('exams',      sid);
+
+    // ── Enrolment calculations ──────────────────────────────
+    const totalStudents = students.length;
+    const totalBoys     = students.filter(function(s) { return s.gender === 'male';   }).length;
+    const totalGirls    = students.filter(function(s) { return s.gender === 'female'; }).length;
+
+    // class-wise breakdown
+    const classRows = classes.map(function(c) {
+      const cs = students.filter(function(s) { return s.class_id === c.class_id; });
+      return {
+        name:  c.name,
+        total: cs.length,
+        boys:  cs.filter(function(s) { return s.gender === 'male';   }).length,
+        girls: cs.filter(function(s) { return s.gender === 'female'; }).length,
+      };
+    });
+
+    // ── Attendance calculation ──────────────────────────────
+    let attPct = 'N/A';
+    if (att.length > 0) {
+      const present = att.filter(function(a) { return a.status === 'present'; }).length;
+      attPct = Math.round((present / att.length) * 100) + '%';
+    }
+
+    // ── Pass percentage calculation ─────────────────────────
+    let passPct = 'N/A';
+    if (marks.length > 0) {
+      const passed = marks.filter(function(m) { return m.marks_obtained >= (m.max_marks * 0.35); }).length;
+      passPct = Math.round((passed / marks.length) * 100) + '%';
+    }
+
+    // ── Academic year ───────────────────────────────────────
+    const now  = new Date();
+    const year = now.getMonth() >= 3
+      ? now.getFullYear() + '-' + (now.getFullYear() + 1)
+      : (now.getFullYear() - 1) + '-' + now.getFullYear();
+
+    // ── Build report HTML ───────────────────────────────────
+    const classRowsHTML = classRows.length > 0
+      ? classRows.map(function(r) {
+          return '<tr><td>' + r.name + '</td><td>' + r.boys + '</td><td>' + r.girls + '</td><td>' + r.total + '</td></tr>';
+        }).join('')
+      : '<tr><td colspan="4" style="text-align:center;color:#888;">No classes found</td></tr>';
+
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>UDISE+ Report — ${school.name || 'School'}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; color: #000; background: #fff; padding: 20px; }
+    h1 { font-size: 16px; text-align: center; margin-bottom: 4px; }
+    h2 { font-size: 13px; text-align: center; margin-bottom: 16px; color: #444; }
+    .print-btn { display: block; margin: 0 auto 20px; padding: 8px 24px; background: #4f46e5; color: #fff; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; }
+    @media print { .print-btn { display: none; } }
+    .section { margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; }
+    .section-title { background: #1e1b4b; color: #fff; padding: 6px 12px; font-size: 12px; font-weight: bold; letter-spacing: 0.5px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 12px; }
+    th { background: #f3f4f6; font-weight: bold; }
+    .auto { background: #f0fdf4; }
+    .manual { background: #fefce8; }
+    .manual input { width: 100%; border: none; background: transparent; font-size: 12px; outline: none; }
+    .legend { font-size: 11px; margin-bottom: 12px; color: #555; }
+    .legend span { display: inline-block; padding: 2px 8px; border-radius: 3px; margin-right: 8px; }
+    .leg-auto { background: #f0fdf4; border: 1px solid #86efac; }
+    .leg-manual { background: #fefce8; border: 1px solid #fde047; }
+    .footer { text-align: center; font-size: 11px; color: #888; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+  <h1>UDISE+ Data Capture Format</h1>
+  <h2>Academic Year: ${year} &nbsp;|&nbsp; Generated by EduTrack</h2>
+  <div class="legend">
+    <span class="leg-auto">🟢 Auto-filled from EduTrack</span>
+    <span class="leg-manual">🟡 Fill manually</span>
+  </div>
+
+  <!-- SECTION 1: School Profile -->
+  <div class="section">
+    <div class="section-title">SECTION 1 — SCHOOL PROFILE</div>
+    <table>
+      <tr><th style="width:40%">Field</th><th>Value</th></tr>
+      <tr class="auto"><td>1.1 School Name</td><td>${school.name || '—'}</td></tr>
+      <tr class="auto"><td>1.2 UDISE Code</td><td>${school.code || '—'}</td></tr>
+      <tr class="auto"><td>1.3 Address</td><td>${school.address || '—'}</td></tr>
+      <tr class="manual"><td>1.4 School Location Type</td><td><input placeholder="1-Rural / 2-Urban"/></td></tr>
+      <tr class="manual"><td>1.5 District Name</td><td><input placeholder="Enter district name"/></td></tr>
+      <tr class="manual"><td>1.6 Block Name</td><td><input placeholder="Enter block name"/></td></tr>
+      <tr class="manual"><td>1.7 Village / Ward Name</td><td><input placeholder="Enter village or ward"/></td></tr>
+      <tr class="manual"><td>1.8 School Management Type</td><td><input placeholder="1-Govt / 2-Govt Aided / 3-Private"/></td></tr>
+      <tr class="manual"><td>1.9 Board of Affiliation</td><td><input placeholder="1-CBSE / 2-State Board / 3-ICSE"/></td></tr>
+      <tr class="manual"><td>1.10 Medium of Instruction</td><td><input placeholder="e.g. Kannada, English"/></td></tr>
+      <tr class="manual"><td>1.11 Type of School</td><td><input placeholder="1-Boys / 2-Girls / 3-Co-Educational"/></td></tr>
+    </table>
+  </div>
+
+  <!-- SECTION 2: Enrolment -->
+  <div class="section">
+    <div class="section-title">SECTION 2 — STUDENT ENROLMENT</div>
+    <table>
+      <tr><th style="width:40%">Field</th><th>Boys</th><th>Girls</th><th>Total</th></tr>
+      <tr class="auto"><td>2.1 Total Enrolment</td><td>${totalBoys}</td><td>${totalGirls}</td><td>${totalStudents}</td></tr>
+      ${classRowsHTML}
+    </table>
+  </div>
+
+  <!-- SECTION 3: Teachers -->
+  <div class="section">
+    <div class="section-title">SECTION 3 — TEACHING STAFF</div>
+    <table>
+      <tr><th style="width:40%">Field</th><th>Value</th></tr>
+      <tr class="auto"><td>3.1 Total Teachers</td><td>${teachers.length}</td></tr>
+      <tr class="manual"><td>3.2 Teachers with Professional Qualification</td><td><input type="number" placeholder="Enter count"/></td></tr>
+      <tr class="manual"><td>3.3 Teachers trained in ICT</td><td><input type="number" placeholder="Enter count"/></td></tr>
+      <tr class="manual"><td>3.4 Contract / Para Teachers</td><td><input type="number" placeholder="Enter count"/></td></tr>
+    </table>
+  </div>
+
+  <!-- SECTION 4: Attendance & Results -->
+  <div class="section">
+    <div class="section-title">SECTION 4 — ATTENDANCE &amp; ACADEMIC RESULTS</div>
+    <table>
+      <tr><th style="width:40%">Field</th><th>Value</th></tr>
+      <tr class="auto"><td>4.1 Overall Attendance Percentage</td><td>${attPct}</td></tr>
+      <tr class="auto"><td>4.2 Overall Pass Percentage</td><td>${passPct}</td></tr>
+      <tr class="manual"><td>4.3 Dropout Rate (%)</td><td><input type="number" placeholder="Enter %"/></td></tr>
+    </table>
+  </div>
+
+  <!-- SECTION 5: Infrastructure -->
+  <div class="section">
+    <div class="section-title">SECTION 5 — INFRASTRUCTURE (Fill Manually)</div>
+    <table>
+      <tr><th style="width:40%">Field</th><th>Value</th></tr>
+      <tr class="manual"><td>5.1 Total Classrooms</td><td><input type="number" placeholder="Enter count"/></td></tr>
+      <tr class="manual"><td>5.2 Electricity Available</td><td><input placeholder="1-Yes / 2-No"/></td></tr>
+      <tr class="manual"><td>5.3 Boys Toilets</td><td><input type="number" placeholder="Enter count"/></td></tr>
+      <tr class="manual"><td>5.4 Girls Toilets</td><td><input type="number" placeholder="Enter count"/></td></tr>
+      <tr class="manual"><td>5.5 Drinking Water Available</td><td><input placeholder="1-Yes / 2-No"/></td></tr>
+      <tr class="manual"><td>5.6 Library Available</td><td><input placeholder="1-Yes / 2-No"/></td></tr>
+      <tr class="manual"><td>5.7 Playground Available</td><td><input placeholder="1-Yes / 2-No"/></td></tr>
+      <tr class="manual"><td>5.8 Computers Available</td><td><input type="number" placeholder="Enter count"/></td></tr>
+      <tr class="manual"><td>5.9 Internet Available</td><td><input placeholder="1-Yes / 2-No"/></td></tr>
+      <tr class="manual"><td>5.10 Mid-Day Meal Provided</td><td><input placeholder="1-Yes / 2-No"/></td></tr>
+    </table>
+  </div>
+
+  <div class="footer">
+    Generated by EduTrack &nbsp;|&nbsp; ${new Date().toLocaleDateString('en-IN')} &nbsp;|&nbsp;
+    Green fields auto-filled from EduTrack data. Yellow fields require manual input before submission.
+  </div>
+</body>
+</html>`);
+    win.document.close();
   },
 
   async manualSync() {
