@@ -201,6 +201,14 @@ const SYNC = {
       return;
     }
 
+    // Sort so parent records sync before dependent records
+    const ORDER = ['schools','users','classes','students','attendance','marks','exams','subjects'];
+    items.sort(function(a, b) {
+      const ai = ORDER.indexOf(a.table_name);
+      const bi = ORDER.indexOf(b.table_name);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
     console.log('[SYNC] syncing', items.length, 'pending items');
 
     for (const item of items) {
